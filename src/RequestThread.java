@@ -71,8 +71,10 @@ public class RequestThread extends Thread {
 
 			//클라이언트의 요청 데이터 타입 확인 
 			String header = br.readLine();
-			if (header == null)
+			if (header == null){
+				connection.close();
 				return;
+			}
 			
 			String requestedMethod = header.substring(0, header.indexOf(" ") );
 			
