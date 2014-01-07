@@ -28,6 +28,15 @@ public class RequestThread extends Thread {
 		XML,
 		OCTET
 	}
+	
+	//응답 코드 설정  
+	public enum ResponseCode{
+		NONE,
+		OK,
+		REDIRECTION,
+		NOT_FOUND,
+		SERVER_ERROR
+	}
 
 	//public static LofHandler logger = 
 	public static final String NEWLINE = System.getProperty("line.separator");
@@ -37,7 +46,8 @@ public class RequestThread extends Thread {
 	Socket connection;
 
 	ContentType requestedType = ContentType.NONE;
-
+	ResponseCode responseCode = ResponseCode.NONE;
+	
 	//서버로부터 인자로 넘겨받은 소켓을 멤버 변수에 맵핑한다.
 	public RequestThread(Socket connection){
 		this.connection = connection;
@@ -63,38 +73,50 @@ public class RequestThread extends Thread {
 			String header = br.readLine();
 			if (header == null)
 				return;
-
+			
+			/////////////////////////////////
+			// for debug
+			/////////////////////////////////
 			System.out.println(header);
+			
 			setRequestedDataType(header);
 
-			//debug
-			String path = header;
-			
-
-			//header가 null이 아니고 비어있는 상태(다 읽은 상태)가 아니라면 계속 한 줄씩 읽고 콘솔에 출력 
-			/*
-			while( !"".equals(header) && header != null){
-				header = br.readLine();
-				System.out.println(header);
-			}
-			 */
 			//요청받은 내용 처리할 객체 생성를 생성하고 요청받은 내용을 넘겨서 처리한다.
 			HttpRequest request = new HttpRequest();
 			//처리 결과는 요청받은 url을 반환하는데, 이는 결국 클라이언트에게 어떤 데이터를 보내주어야 하는지 확인하는 수단이 된다.
-			String requestUrl = request.parsingUrl(path);
+			String requestUrl = request.parsingUrl(header);
 
 			//보내줄 파일들을 저장하는 폴더 아래에서 요청받은 파일을 찾아서 변수에 할당 
 			File requesstFile = new File(DEFAULT_WEBAPPS_DIR + requestUrl);
+			
+			if ( !requesstFile.exists() ){
+				responseCode = ResponseCode.NOT_FOUND;
+				requestedType = ContentType.HTML;
+				
+				requesstFile = new File(DEFAULT_WEBAPPS_DIR + "/not_found_html.html");
+				
+				/////////////////////////////////
+				// for debug
+				/////////////////////////////////
+				System.out.println("NOT FOUND");
+				System.out.println(requesstFile.length());
+			} else {
+				responseCode = ResponseCode.OK;
+			}
 
+			/////////////////////////////////
+			// for debug
+			/////////////////////////////////
 			System.out.println(requesstFile);
 
 			//소켓에 할당된 output스트림에다가 
 			DataOutputStream dos = new DataOutputStream(os);
-			FileInputStream fis = new FileInputStream(requesstFile);
-
+			
 			//요청 처리 메시지를 만든다 
-			responseHTMLOK(dos, requesstFile.length() );
-
+			responseHTML(dos, requesstFile.length() );
+			
+			FileInputStream fis = new FileInputStream(requesstFile);
+	
 			//본격적으로 요청받은 데이터를 쓴다 - do while느낌 
 			int data = fis.read();
 
@@ -102,7 +124,7 @@ public class RequestThread extends Thread {
 				dos.write(data);
 				data = fis.read();
 			}
-
+			
 			//다 썼으면 스트림들 정리하고 소켓을 정리(연결을 끊는다. http에서는 서버가 연결을 끊으니까)
 			fis.close();
 			dos.close();
@@ -114,20 +136,19 @@ public class RequestThread extends Thread {
 		}
 	}
 
-	private void responseHTMLOK(DataOutputStream dos, long length) throws IOException {
+	private void responseHTML(DataOutputStream dos, long length) throws IOException {
 		//성공한 경우 해당하는 메시지 생성 - 실패인 경우 상위에서 판단할 지 여기서 할 지 확인 필요함 
 		String type = selectTypeHeader();
-		responseOk(dos, length, type);
+		String code = selectResponseCode();
+		response(dos, length, code, type);
 	}
 
 	//클라이언트가 요청한 파일을 전송하는 메시지를 버퍼에다 쓴다.
-	private void responseOk(DataOutputStream dos, long length, String string) throws IOException {
-		dos.writeBytes("HTTP/1.0 200 Document Follows " + NEWLINE);
-		dos.writeBytes("Content-Type: " + string + " ;charset=utf-8" + NEWLINE);
+	private void response(DataOutputStream dos, long length, String code, String type) throws IOException {
+		dos.writeBytes("HTTP/1.0 " + code + " Document Follows " + NEWLINE);
+		dos.writeBytes("Content-Type: " + type + " ;charset=utf-8" + NEWLINE);
 		dos.writeBytes("Content-Length: " + length + NEWLINE);
 		dos.writeBytes(NEWLINE); //데이터가 들어가기 전에는 빈 줄 생성 
-
-		System.out.println(string);
 	}
 
 	private void setRequestedDataType(String header){
@@ -250,5 +271,28 @@ public class RequestThread extends Thread {
 		}
 
 		return typeHeader;
+	}
+	
+	private String selectResponseCode(){
+		String code = null;
+		
+		switch(responseCode){
+		case OK:
+			code = "200";
+			break;
+		case REDIRECTION:
+			code = "301";
+			break;
+		case NOT_FOUND:
+			code = "404";
+			break;
+		case SERVER_ERROR:
+			code = "501";
+			break;
+		default:
+			break;	
+		}
+		
+		return code;
 	}
 }

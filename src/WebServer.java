@@ -1,6 +1,8 @@
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.net.UnknownHostException;
 
 public class WebServer 
@@ -8,9 +10,15 @@ public class WebServer
 	public static void main(String[] args) throws UnknownHostException, IOException 
 	{
 		//서버용 소켓을 준비한다. (listen하기 위해서 - port는 test니까 8080으로)
-		ServerSocket server = new ServerSocket(8083);
+		ServerSocket server = new ServerSocket(8080);
+		//Socket server = new Socket();
 		
-		//				reuse옵션 줘야될 수도?				//
+		//SocketAddress addr = new InetSocketAddress("127.0.0.1", 8080);
+		//server.bind(addr);
+		
+		//server.setTcpNoDelay(true);
+		
+		//server.
 		
 		//logger.info("webserver started");
 		
