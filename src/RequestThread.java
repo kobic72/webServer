@@ -74,6 +74,13 @@ public class RequestThread extends Thread {
 			if (header == null)
 				return;
 			
+			String requestedMethod = header.substring(0, header.indexOf(" ") );
+			
+			//일단 GET 방식의 요청이 아니면 지원 안 함 
+			if ( !"GET".equals(requestedMethod) ){
+				responseCode = ResponseCode.SERVER_ERROR;
+			}
+			
 			/////////////////////////////////
 			// for debug
 			/////////////////////////////////
@@ -91,15 +98,16 @@ public class RequestThread extends Thread {
 			
 			if ( !requesstFile.exists() ){
 				responseCode = ResponseCode.NOT_FOUND;
-				requestedType = ContentType.HTML;
 				
-				requesstFile = new File(DEFAULT_WEBAPPS_DIR + "/not_found_html.html");
+				//error message out
+				if (requestedType == ContentType.HTML){
+					requesstFile = new File(DEFAULT_WEBAPPS_DIR + "/not_found_html.html");
+				}
 				
 				/////////////////////////////////
 				// for debug
 				/////////////////////////////////
-				System.out.println("NOT FOUND");
-				System.out.println(requesstFile.length());
+				System.out.println("NOT FOUND : " + requestUrl);
 			} else {
 				responseCode = ResponseCode.OK;
 			}
@@ -147,6 +155,7 @@ public class RequestThread extends Thread {
 	private void response(DataOutputStream dos, long length, String code, String type) throws IOException {
 		dos.writeBytes("HTTP/1.0 " + code + " Document Follows " + NEWLINE);
 		dos.writeBytes("Content-Type: " + type + " ;charset=utf-8" + NEWLINE);
+		dos.writeBytes("Cache-Control: max-age=3600, must-revalidate" + NEWLINE);
 		dos.writeBytes("Content-Length: " + length + NEWLINE);
 		dos.writeBytes(NEWLINE); //데이터가 들어가기 전에는 빈 줄 생성 
 	}
