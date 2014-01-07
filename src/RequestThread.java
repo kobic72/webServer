@@ -86,16 +86,23 @@ public class RequestThread extends Thread {
 			/////////////////////////////////
 			System.out.println(header);
 			
+			//요청받은 파일 형식을 확인하고 나중에 응답할 때 쓰기 위해 기록해 둔다.
 			setRequestedDataType(header);
 
 			//요청받은 내용 처리할 객체 생성를 생성하고 요청받은 내용을 넘겨서 처리한다.
 			HttpRequest request = new HttpRequest();
 			//처리 결과는 요청받은 url을 반환하는데, 이는 결국 클라이언트에게 어떤 데이터를 보내주어야 하는지 확인하는 수단이 된다.
 			String requestUrl = request.parsingUrl(header);
-
+			
+			//주소만 넣어도 기본 페이지가 보이도록 설정
+			if ( !requestUrl.contains(".") ){
+				requestUrl += "index.html";
+			}
+			
 			//보내줄 파일들을 저장하는 폴더 아래에서 요청받은 파일을 찾아서 변수에 할당 
 			File requesstFile = new File(DEFAULT_WEBAPPS_DIR + requestUrl);
 			
+			//찾은 파일이 존재하지 않으면 404 코드를 설정하고, 만약 요청받은 파일이 html형식이라면 에러 메시지를 표시할 수 있는 오류 페이지 전송
 			if ( !requesstFile.exists() ){
 				responseCode = ResponseCode.NOT_FOUND;
 				
@@ -105,7 +112,7 @@ public class RequestThread extends Thread {
 				}
 				
 				/////////////////////////////////
-				// for debug
+				// for debug - not found 로그 표시
 				/////////////////////////////////
 				System.out.println("NOT FOUND : " + requestUrl);
 			} else {
@@ -113,19 +120,19 @@ public class RequestThread extends Thread {
 			}
 
 			/////////////////////////////////
-			// for debug
+			// for debug - 보내줄 파일 로그 표시 
 			/////////////////////////////////
 			System.out.println(requesstFile);
 
 			//소켓에 할당된 output스트림에다가 
 			DataOutputStream dos = new DataOutputStream(os);
 			
-			//요청 처리 메시지를 만든다 
+			//요청 처리 메시지를 만든다
 			responseHTML(dos, requesstFile.length() );
 			
 			FileInputStream fis = new FileInputStream(requesstFile);
 	
-			//본격적으로 요청받은 데이터를 쓴다 - do while느낌 
+			//본격적으로 요청받은 데이터를 쓴다
 			int data = fis.read();
 
 			while(data != -1){
@@ -136,6 +143,8 @@ public class RequestThread extends Thread {
 			//다 썼으면 스트림들 정리하고 소켓을 정리(연결을 끊는다. http에서는 서버가 연결을 끊으니까)
 			fis.close();
 			dos.close();
+			
+			//keep-alive는 지원하지 않음 
 			connection.close();
 
 		} catch (IOException e) {
@@ -146,8 +155,8 @@ public class RequestThread extends Thread {
 
 	private void responseHTML(DataOutputStream dos, long length) throws IOException {
 		//성공한 경우 해당하는 메시지 생성 - 실패인 경우 상위에서 판단할 지 여기서 할 지 확인 필요함 
-		String type = selectTypeHeader();
 		String code = selectResponseCode();
+		String type = selectTypeHeader();
 		response(dos, length, code, type);
 	}
 
@@ -168,7 +177,6 @@ public class RequestThread extends Thread {
 		if (startPosition >= endPosition)
 			type = "html";
 		else
-			//String type = header.substring(startPosition, header.indexOf(" ", startPosition) );
 			type = header.substring(startPosition, endPosition);
 
 		if ( "json".equals(type) ){
