@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -12,7 +13,7 @@ import java.net.Socket;
 
 public class RequestThread extends Thread {
 
-	//¿äÃ» ÆÄÀÏ Á¾·ù ¼³Á¤À» À§ÇÑ °ª ¼³Á¤ 
+	//ìš”ì²­ íŒŒì¼ ì¢…ë¥˜ ì„¤ì •ì„ ìœ„í•œ ê°’ ì„¤ì • 
 	public enum ContentType{
 		NONE,
 		JSON,
@@ -29,7 +30,7 @@ public class RequestThread extends Thread {
 		OCTET
 	}
 	
-	//ÀÀ´ä ÄÚµå ¼³Á¤  
+	//ì‘ë‹µ ì½”ë“œ ì„¤ì • 
 	public enum ResponseCode{
 		NONE,
 		OK,
@@ -38,47 +39,48 @@ public class RequestThread extends Thread {
 		SERVER_ERROR
 	}
 
-	//public static LofHandler logger = 
+	private DBManager dbManager = null;
 	public static final String NEWLINE = System.getProperty("line.separator");
 	public static final String DEFAULT_WEBAPPS_DIR = "./webapps";
 
-	//Å¬¶óÀÌ¾ğÆ®¿Í ¿¬°áµÈ ¼ÒÄÏ 
+	//í´ë¼ì´ì–¸íŠ¸ì™€ ì—°ê²°ëœ ì†Œì¼“ 
 	Socket connection;
 
 	ContentType requestedType = ContentType.NONE;
 	ResponseCode responseCode = ResponseCode.NONE;
 	
-	//¼­¹ö·ÎºÎÅÍ ÀÎÀÚ·Î ³Ñ°Ü¹ŞÀº ¼ÒÄÏÀ» ¸â¹ö º¯¼ö¿¡ ¸ÊÇÎÇÑ´Ù.
-	public RequestThread(Socket connection){
+	//ì„œë²„ë¡œë¶€í„° ì¸ìë¡œ ë„˜ê²¨ë°›ì€ ì†Œì¼“ì„ ë©¤ë²„ ë³€ìˆ˜ì— ë§µí•‘í•œë‹¤.
+	public RequestThread(Socket connection, DBManager manager){
 		this.connection = connection;
+		this.dbManager = manager;
 	}
 
-	//ÀÛ¾÷ ½ÃÀÛ 
+	//ì‘ì—… ì‹œì‘  
 	public void run(){
 		//logger.info("request thread started");
 
-		//textÀÌ¸é reader/writer - image´Â µû·Î Ã³¸® ÇÊ¿ä 
 		InputStream is;
 		OutputStream os;
 
 		try {
-			//ÇöÀç Å¬¶óÀÌ¾ğÆ®¿Í ¿¬°áµÈ ¼ÒÄÏ¿¡´Ù°¡ input / output¿ë ½ºÆ®¸²À» ÇÒ´çÇÑ´Ù.
+			//í˜„ì¬ í´ë¼ì´ì–¸íŠ¸ì™€ ì—°ê²°ëœ ì†Œì¼“ì—ë‹¤ê°€ input / outputìš© ìŠ¤íŠ¸ë¦¼ì„ í• ë‹¹í•œë‹¤.
 			is = connection.getInputStream();
 			os = connection.getOutputStream();
 
-			//¼º´É È¤Àº ¾ÈÁ¤¼ºÀ» À§ÇÑ ¹öÆÛ ÇÒ´ç 
+			//ì„±ëŠ¥ í˜¹ì€ ì•ˆì •ì„±ì„ ìœ„í•œ ë²„í¼ í• ë‹¹ 
 			BufferedReader br = new BufferedReader(new InputStreamReader(is));
 
-			//Å¬¶óÀÌ¾ğÆ®ÀÇ ¿äÃ» µ¥ÀÌÅÍ Å¸ÀÔ È®ÀÎ 
+			//ë¹ˆ ìš”ì²­ì€ ìŠ¤í‚µ 
 			String header = br.readLine();
 			if (header == null){
 				connection.close();
 				return;
 			}
 			
+			//í´ë¼ì´ì–¸íŠ¸ì˜ ìš”ì²­ ë°ì´í„° íƒ€ì… í™•ì¸
 			String requestedMethod = header.substring(0, header.indexOf(" ") );
 			
-			//ÀÏ´Ü GET ¹æ½ÄÀÇ ¿äÃ»ÀÌ ¾Æ´Ï¸é Áö¿ø ¾È ÇÔ 
+			//ì¼ë‹¨ GET ë°©ì‹ì˜ ìš”ì²­ì´ ì•„ë‹ˆë©´ ì§€ì› ì•ˆ í•¨ 
 			if ( !"GET".equals(requestedMethod) ){
 				responseCode = ResponseCode.SERVER_ERROR;
 			}
@@ -88,66 +90,86 @@ public class RequestThread extends Thread {
 			/////////////////////////////////
 			System.out.println(header);
 			
-			//¿äÃ»¹ŞÀº ÆÄÀÏ Çü½ÄÀ» È®ÀÎÇÏ°í ³ªÁß¿¡ ÀÀ´äÇÒ ¶§ ¾²±â À§ÇØ ±â·ÏÇØ µĞ´Ù.
+			//ìš”ì²­ë°›ì€ íŒŒì¼ í˜•ì‹ì„ í™•ì¸í•˜ê³  ë‚˜ì¤‘ì— ì‘ë‹µí•  ë•Œ ì“°ê¸° ìœ„í•´ ê¸°ë¡í•´ ë‘”ë‹¤.
 			setRequestedDataType(header);
 
-			//¿äÃ»¹ŞÀº ³»¿ë Ã³¸®ÇÒ °´Ã¼ »ı¼º¸¦ »ı¼ºÇÏ°í ¿äÃ»¹ŞÀº ³»¿ëÀ» ³Ñ°Ü¼­ Ã³¸®ÇÑ´Ù.
+			//ìš”ì²­ë°›ì€ ë‚´ìš© ì²˜ë¦¬í•  ê°ì²´ ìƒì„±ë¥¼ ìƒì„±í•˜ê³  ìš”ì²­ë°›ì€ ë‚´ìš©ì„ ë„˜ê²¨ì„œ ì²˜ë¦¬í•œë‹¤.
 			HttpRequest request = new HttpRequest();
-			//Ã³¸® °á°ú´Â ¿äÃ»¹ŞÀº urlÀ» ¹İÈ¯ÇÏ´Âµ¥, ÀÌ´Â °á±¹ Å¬¶óÀÌ¾ğÆ®¿¡°Ô ¾î¶² µ¥ÀÌÅÍ¸¦ º¸³»ÁÖ¾î¾ß ÇÏ´ÂÁö È®ÀÎÇÏ´Â ¼ö´ÜÀÌ µÈ´Ù.
+			//ì²˜ë¦¬ ê²°ê³¼ëŠ” ìš”ì²­ë°›ì€ urlì„ ë°˜í™˜í•˜ëŠ”ë°, ì´ëŠ” ê²°êµ­ í´ë¼ì´ì–¸íŠ¸ì—ê²Œ ì–´ë–¤ ë°ì´í„°ë¥¼ ë³´ë‚´ì£¼ì–´ì•¼ í•˜ëŠ”ì§€ í™•ì¸í•˜ëŠ” ìˆ˜ë‹¨ì´ ëœë‹¤.
 			String requestUrl = request.parsingUrl(header);
 			
-			//ÁÖ¼Ò¸¸ ³Ö¾îµµ ±âº» ÆäÀÌÁö°¡ º¸ÀÌµµ·Ï ¼³Á¤
+			//ì£¼ì†Œë§Œ ë„£ì–´ë„ ê¸°ë³¸ í˜ì´ì§€ê°€ ë³´ì´ë„ë¡ ì„¤ì •
 			if ( !requestUrl.contains(".") ){
 				requestUrl += "index.html";
 			}
 			
-			//º¸³»ÁÙ ÆÄÀÏµéÀ» ÀúÀåÇÏ´Â Æú´õ ¾Æ·¡¿¡¼­ ¿äÃ»¹ŞÀº ÆÄÀÏÀ» Ã£¾Æ¼­ º¯¼ö¿¡ ÇÒ´ç 
-			File requesstFile = new File(DEFAULT_WEBAPPS_DIR + requestUrl);
+			//ìš”ì²­ ë°›ì€ ë°ì´í„°ë¥¼ ë³´ë‚¼ ìŠ¤íŠ¸ë¦¼ ìƒì„±  
+			DataOutputStream dos = new DataOutputStream(os);
 			
-			//Ã£Àº ÆÄÀÏÀÌ Á¸ÀçÇÏÁö ¾ÊÀ¸¸é 404 ÄÚµå¸¦ ¼³Á¤ÇÏ°í, ¸¸¾à ¿äÃ»¹ŞÀº ÆÄÀÏÀÌ htmlÇü½ÄÀÌ¶ó¸é ¿¡·¯ ¸Ş½ÃÁö¸¦ Ç¥½ÃÇÒ ¼ö ÀÖ´Â ¿À·ù ÆäÀÌÁö Àü¼Û
-			if ( !requesstFile.exists() ){
-				responseCode = ResponseCode.NOT_FOUND;
+			//dbì¡°íšŒê°€ í•„ìš”í•œì§€ í™•ì¸ 
+			String tempString = requestUrl.substring(requestUrl.lastIndexOf("_") + 1, requestUrl.length() );
+			if ("newsTag.json".equals(tempString) ){
+				//newsTag ê´€ë ¨ ìš”ì²­ì´ë¯€ë¡œ dbì¡°íšŒ í•„ìš”
+				String newspaperName = requestUrl.substring(requestUrl.lastIndexOf("/") + 1, requestUrl.lastIndexOf("_") );
+				String result = dbManager.getTags(newspaperName);
 				
-				//error message out
-				if (requestedType == ContentType.HTML){
-					requesstFile = new File(DEFAULT_WEBAPPS_DIR + "/not_found_html.html");
+				if (result != null){
+					responseCode = ResponseCode.OK;
+				}
+				System.out.println(">>> " + result);
+				
+				//db ì¡°íšŒ ê²°ê³¼ë¥¼ json í˜•ì‹ìœ¼ë¡œ ì „ì†¡
+				responseHTML(dos, result.getBytes("UTF-8").length );
+				dos.write(result.getBytes("UTF-8"));
+				
+				//encoding problem
+				//dos.writeUTF(result);
+				//dos.writeBytes(""[[\"test\", 4], [\"í…ŒìŠ¤íŠ¸\", 2]]");
+			} else {
+				//dbì¡°íšŒê°€ í•„ìš”í•˜ì§€ ì•ŠìŒ - í´ë” ì•ˆì—ì„œ ìš”ì²­ íŒŒì¼ì„ ì°¾ì•„ë³´ì 
+				//ë³´ë‚´ì¤„ íŒŒì¼ë“¤ì„ ì €ì¥í•˜ëŠ” í´ë” ì•„ë˜ì—ì„œ ìš”ì²­ë°›ì€ íŒŒì¼ì„ ì°¾ì•„ì„œ ë³€ìˆ˜ì— í• ë‹¹
+				File requesstFile = new File(DEFAULT_WEBAPPS_DIR + requestUrl);
+				
+				//ì°¾ì€ íŒŒì¼ì´ ì¡´ì¬í•˜ì§€ ì•Šìœ¼ë©´ 404 ì½”ë“œë¥¼ ì„¤ì •í•˜ê³ , ë§Œì•½ ìš”ì²­ë°›ì€ íŒŒì¼ì´ htmlí˜•ì‹ì´ë¼ë©´ ì—ëŸ¬ ë©”ì‹œì§€ë¥¼ í‘œì‹œí•  ìˆ˜ ìˆëŠ” ì˜¤ë¥˜ í˜ì´ì§€ ì „ì†¡
+                if ( !requesstFile.exists() ){
+					responseCode = ResponseCode.NOT_FOUND;
+					
+					//error message out
+					if (requestedType == ContentType.HTML){
+						requesstFile = new File(DEFAULT_WEBAPPS_DIR + "/not_found_html.html");
+					}
+					
+					/////////////////////////////////
+					// for debug - not found ë¡œê·¸ í‘œì‹œ
+					/////////////////////////////////
+					System.out.println("NOT FOUND : " + requestUrl);
+				} else {
+					responseCode = ResponseCode.OK;
 				}
 				
 				/////////////////////////////////
-				// for debug - not found ·Î±× Ç¥½Ã
+				// for debug - ë³´ë‚´ì¤„ íŒŒì¼ ë¡œê·¸ í‘œì‹œ 
 				/////////////////////////////////
-				System.out.println("NOT FOUND : " + requestUrl);
-			} else {
-				responseCode = ResponseCode.OK;
+				System.out.println(requesstFile);
+				
+				//ìš”ì²­ ì²˜ë¦¬ ë©”ì‹œì§€ë¥¼ ë§Œë“ ë‹¤
+				responseHTML(dos, requesstFile.length() );
+				
+				FileInputStream fis = new FileInputStream(requesstFile);
+		
+				//ë³¸ê²©ì ìœ¼ë¡œ ìš”ì²­ë°›ì€ ë°ì´í„°ë¥¼ ì“´ë‹¤
+				int data = fis.read();
+
+				while(data != -1){
+					dos.write(data);
+					data = fis.read();
+				}
+				fis.close();
 			}
 
-			/////////////////////////////////
-			// for debug - º¸³»ÁÙ ÆÄÀÏ ·Î±× Ç¥½Ã 
-			/////////////////////////////////
-			System.out.println(requesstFile);
-
-			//¼ÒÄÏ¿¡ ÇÒ´çµÈ output½ºÆ®¸²¿¡´Ù°¡ 
-			DataOutputStream dos = new DataOutputStream(os);
-			
-			//¿äÃ» Ã³¸® ¸Ş½ÃÁö¸¦ ¸¸µç´Ù
-			responseHTML(dos, requesstFile.length() );
-			
-			FileInputStream fis = new FileInputStream(requesstFile);
-	
-			//º»°İÀûÀ¸·Î ¿äÃ»¹ŞÀº µ¥ÀÌÅÍ¸¦ ¾´´Ù
-			int data = fis.read();
-
-			while(data != -1){
-				dos.write(data);
-				data = fis.read();
-			}
-			
-			//´Ù ½èÀ¸¸é ½ºÆ®¸²µé Á¤¸®ÇÏ°í ¼ÒÄÏÀ» Á¤¸®(¿¬°áÀ» ²÷´Â´Ù. http¿¡¼­´Â ¼­¹ö°¡ ¿¬°áÀ» ²÷À¸´Ï±î)
-			fis.close();
+			//ë‹¤ ì¼ìœ¼ë©´ ìŠ¤íŠ¸ë¦¼ë“¤ ì •ë¦¬í•˜ê³  ì†Œì¼“ì„ ì •ë¦¬(ì—°ê²°ì„ ëŠëŠ”ë‹¤. httpì—ì„œëŠ” ì„œë²„ê°€ ì—°ê²°ì„ ëŠìœ¼ë‹ˆê¹Œ)
 			dos.close();
-			
-			//keep-alive´Â Áö¿øÇÏÁö ¾ÊÀ½ 
-			connection.close();
+			connection.close(); //keep-aliveëŠ” ì§€ì›í•˜ì§€ ì•ŠìŒ
 
 		} catch (IOException e) {
 			//e.printStackTrace();
@@ -156,19 +178,27 @@ public class RequestThread extends Thread {
 	}
 
 	private void responseHTML(DataOutputStream dos, long length) throws IOException {
-		//¼º°øÇÑ °æ¿ì ÇØ´çÇÏ´Â ¸Ş½ÃÁö »ı¼º - ½ÇÆĞÀÎ °æ¿ì »óÀ§¿¡¼­ ÆÇ´ÜÇÒ Áö ¿©±â¼­ ÇÒ Áö È®ÀÎ ÇÊ¿äÇÔ 
+		//ì„±ê³µí•œ ê²½ìš° í•´ë‹¹í•˜ëŠ” ë©”ì‹œì§€ ìƒì„± - ì‹¤íŒ¨ì¸ ê²½ìš° ìƒìœ„ì—ì„œ íŒë‹¨í•  ì§€ ì—¬ê¸°ì„œ í•  ì§€ í™•ì¸ í•„ìš”í•¨ 
 		String code = selectResponseCode();
 		String type = selectTypeHeader();
 		response(dos, length, code, type);
 	}
 
-	//Å¬¶óÀÌ¾ğÆ®°¡ ¿äÃ»ÇÑ ÆÄÀÏÀ» Àü¼ÛÇÏ´Â ¸Ş½ÃÁö¸¦ ¹öÆÛ¿¡´Ù ¾´´Ù.
+	//í´ë¼ì´ì–¸íŠ¸ê°€ ìš”ì²­í•œ íŒŒì¼ì„ ì „ì†¡í•˜ëŠ” ë©”ì‹œì§€ë¥¼ ë²„í¼ì—ë‹¤ ì“´ë‹¤.
 	private void response(DataOutputStream dos, long length, String code, String type) throws IOException {
 		dos.writeBytes("HTTP/1.0 " + code + " Document Follows " + NEWLINE);
 		dos.writeBytes("Content-Type: " + type + " ;charset=utf-8" + NEWLINE);
-		dos.writeBytes("Cache-Control: max-age=3600, must-revalidate" + NEWLINE);
+		if (requestedType == ContentType.JSON){
+			dos.writeBytes("Cache-Control: max-age=10, must-revalidate" + NEWLINE);
+		} else {
+			dos.writeBytes("Cache-Control: max-age=60, must-revalidate" + NEWLINE);
+		}
 		dos.writeBytes("Content-Length: " + length + NEWLINE);
-		dos.writeBytes(NEWLINE); //µ¥ÀÌÅÍ°¡ µé¾î°¡±â Àü¿¡´Â ºó ÁÙ »ı¼º 
+		dos.writeBytes(NEWLINE); //ë°ì´í„°ê°€ ë“¤ì–´ê°€ê¸° ì „ì—ëŠ” ë¹ˆ ì¤„ ìƒì„± 
+		
+		System.out.println("    " + "HTTP/1.0 " + code + " Document Follows " + NEWLINE);
+		System.out.println("    " + "Content-Type: " + type + " ;charset=utf-8" + NEWLINE);
+		System.out.println("    " + "Content-Length: " + length + NEWLINE);
 	}
 
 	private void setRequestedDataType(String header){

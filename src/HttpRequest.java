@@ -2,8 +2,8 @@
 public class HttpRequest {
 
 	public String parsingUrl(String path){
-		//GET ¶Ç´Â POST ¹Ù·Î ´ÙÀ½¿¡ ¿À´Â ºÎºĞÀÌ ¿äÃ»ÇÑ ÀÚ·á - ¶ç¾î¾²±â¸¦ ±âÁØÀ¸·Î ±¸ºĞµÇ¾î ÀÖÀ¸¹Ç·Î Ã³À½À¸·Î ¶ç¾î¾²±â µÇ¾î ÀÖ´Â °÷ºÎÅÍ ±× ´ÙÀ½ ¶ç¾î¾²±â±îÁö
-		String requestUrl = path.substring(path.indexOf(" ") + 1, path.lastIndexOf(" ") );
+		//GET ë˜ëŠ” POST ë°”ë¡œ ë‹¤ìŒì— ì˜¤ëŠ” ë¶€ë¶„ì´ ìš”ì²­í•œ ìë£Œ - ë„ì–´ì“°ê¸°ë¥¼ ê¸°ì¤€ìœ¼ë¡œ êµ¬ë¶„ë˜ì–´ ìˆìœ¼ë¯€ë¡œ ì²˜ìŒìœ¼ë¡œ ë„ì–´ì“°ê¸° ë˜ì–´ ìˆëŠ” ê³³ë¶€í„° ê·¸ ë‹¤ìŒ ë„ì–´ì“°ê¸°ê¹Œì§€
+        String requestUrl = path.substring(path.indexOf(" ") + 1, path.lastIndexOf(" ") );
 		
 		return requestUrl;
 	}

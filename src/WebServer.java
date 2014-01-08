@@ -7,21 +7,24 @@ public class WebServer
 {
 	public static void main(String[] args) throws UnknownHostException, IOException 
 	{
-		//¼­¹ö¿ë ¼ÒÄÏÀ» ÁØºñÇÑ´Ù. (listenÇÏ±â À§ÇØ¼­ - port´Â test´Ï±î 8080À¸·Î)
-		ServerSocket server = new ServerSocket(8080);
+		//ì„œë²„ìš© ì†Œì¼“ì„ ì¤€ë¹„í•œë‹¤. (listení•˜ê¸° ìœ„í•´ì„œ - portëŠ” testë‹ˆê¹Œ 8080ìœ¼ë¡œ)
+		ServerSocket server = new ServerSocket(8080, 50);
 		
 		//logger.info("webserver started");
 		
-		//¿äÃ»¿¡ ÀÇÇØ¼­ ¿¬°áµÇ¸é ±×°É ¼ÒÄÏÀ¸·Î ¹İÈ¯ÇÏ°í ±× ¼ÒÄÏÀ» ÅëÇØ¼­ ¿äÃ»ÇÑ Å¬¶óÀÌ¾ğÆ®¿Í Åë½ÅÇÑ´Ù.
+		//ìš”ì²­ì— ì˜í•´ì„œ ì—°ê²°ë˜ë©´ ê·¸ê±¸ ì†Œì¼“ìœ¼ë¡œ ë°˜í™˜í•˜ê³  ê·¸ ì†Œì¼“ì„ í†µí•´ì„œ ìš”ì²­í•œ í´ë¼ì´ì–¸íŠ¸ì™€ í†µì‹ í•œë‹¤.
 		Socket connection = null;
 		
-		//¿äÃ»ÀÌ ÀÖ´ÂÁö °è¼Ó È®ÀÎÇÑ´Ù.
+		//json È®ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Å´ï¿½ï¿½ï¿½ ï¿½ï¿½
+		DBManager dbManager = new DBManager();
+		
+		//ìš”ì²­ì´ ìˆëŠ”ì§€ ê³„ì† í™•ì¸í•œë‹¤.
 		while ( true )
 		{
-			//¿äÃ» µé¾î¿Â °ÍÀÌ ÀÖÀ¸¸é ÀÏ´Ü ÀÓ½Ã·Î ¼ÒÄÏ¿¡ ÀúÀå
+			//ìš”ì²­ ë“¤ì–´ì˜¨ ê²ƒì´ ìˆìœ¼ë©´ ì¼ë‹¨ ì„ì‹œë¡œ ì†Œì¼“ì— ì €ì¥
 			connection = server.accept();
-			//ÀÓ½Ã·Î ÀúÀåÇÑ ¼ÒÄÏ Á¤º¸¸¦ ÀÎÀÚ·Î ÁÖ¸é¼­ ¿äÃ»À» Ã³¸®ÇÏ´Â ½º·¹µå¸¦ »ı¼ºÇÏ°í ½ÃÀÛÇÑ´Ù.
-			RequestThread thread = new RequestThread(connection);
+			//ì„ì‹œë¡œ ì €ì¥í•œ ì†Œì¼“ ì •ë³´ë¥¼ ì¸ìë¡œ ì£¼ë©´ì„œ ìš”ì²­ì„ ì²˜ë¦¬í•˜ëŠ” ìŠ¤ë ˆë“œë¥¼ ìƒì„±í•˜ê³  ì‹œì‘í•œë‹¤.
+			RequestThread thread = new RequestThread(connection, dbManager);
 			thread.start();
 		}
 	}
