@@ -15,7 +15,7 @@ public class WebServer
 		//요청에 의해서 연결되면 그걸 소켓으로 반환하고 그 소켓을 통해서 요청한 클라이언트와 통신한다.
 		Socket connection = null;
 		
-		//json Ȯ���� ���� �Ŵ��� ��
+		//json 요청 중에 데이터베이스 조회가 필요한 경우 처리를 위한 객체 생성
 		DBManager dbManager = new DBManager();
 		
 		//요청이 있는지 계속 확인한다.

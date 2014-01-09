@@ -125,6 +125,20 @@ public class RequestThread extends Thread {
 				//encoding problem
 				//dos.writeUTF(result);
 				//dos.writeBytes(""[[\"test\", 4], [\"테스트\", 2]]");
+			} else if("detail.json".equals(tempString)){
+				//newsTag 관련 요청이므로 db조회 필요
+				String newspaperName = requestUrl.substring(requestUrl.lastIndexOf("/") + 1, requestUrl.indexOf("_") );
+				String tagIdx = requestUrl.substring(requestUrl.indexOf("_") + 1, requestUrl.lastIndexOf("_") );
+				String result = dbManager.getDetail(newspaperName, tagIdx);
+				
+				if (result != null){
+					responseCode = ResponseCode.OK;
+				}
+				System.out.println(">>> " + result);
+				
+				//db 조회 결과를 json 형식으로 전송
+				responseHTML(dos, result.getBytes("UTF-8").length );
+				dos.write(result.getBytes("UTF-8"));
 			} else {
 				//db조회가 필요하지 않음 - 폴더 안에서 요청 파일을 찾아보자 
 				//보내줄 파일들을 저장하는 폴더 아래에서 요청받은 파일을 찾아서 변수에 할당
