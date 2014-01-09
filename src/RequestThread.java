@@ -77,18 +77,100 @@ public class RequestThread extends Thread {
 				return;
 			}
 			
+			////////////////////////////////////////
+			System.out.println(header); // for debug
+			////////////////////////////////////////
+			
 			//클라이언트의 요청 데이터 타입 확인
 			String requestedMethod = header.substring(0, header.indexOf(" ") );
 			
 			//일단 GET 방식의 요청이 아니면 지원 안 함 
-			if ( !"GET".equals(requestedMethod) ){
+			if ( "POST".equals(requestedMethod) ){
+				//요청받은 파일 형식을 확인하고 나중에 응답할 때 쓰기 위해 기록해 둔다.
+				setRequestedDataType(header);
+				
+				//요청받은 파일 확인
+				HttpRequest request = new HttpRequest();
+				String path = request.parsingUrl(header);
+				
+				//일단 요청 내용을 확인해 보자 
+				int contentLength = 0;
+				
+				while( !"".equals(header) && header != null){
+					header = br.readLine();
+					if ( header.contains("Content-Length") ){
+						contentLength = Integer.parseInt(header.substring(header.indexOf("Content-Length: ") + "Content-Length: ".length(), header.length() ) );
+						//indexOf("Content-Length: ")
+					}
+					//System.out.println(header);
+				}
+				
+				System.out.println(contentLength);
+				
+				char[] receivedBody = new char[contentLength];
+				if ( contentLength != br.read(receivedBody, 0 , contentLength) ){
+					//error
+				}
+				
+				String receivedBodyString = "";
+				
+				for (int i = 0; i < contentLength; ++i){
+					//receivedBody[i] = (char) br.read();
+					receivedBodyString += receivedBody[i];
+				}
+				
+				//System.out.println(receivedBody);
+				
+				String id = receivedBodyString.substring(receivedBodyString.indexOf("=") + 1, receivedBodyString.indexOf("&") );
+				String passwd = receivedBodyString.substring(receivedBodyString.lastIndexOf("=") + 1, receivedBodyString.length() );
+				
+				System.out.println("id : " + id + "\npw : " + passwd);
+				
+				File requesstFile = new File(DEFAULT_WEBAPPS_DIR + path);
+				if ( !requesstFile.exists() ){
+					responseCode = ResponseCode.NOT_FOUND;
+					
+					//error message out
+					if (requestedType == ContentType.HTML){
+						requesstFile = new File(DEFAULT_WEBAPPS_DIR + "/not_found_html.html");
+					}
+					
+					/////////////////////////////////
+					// for debug - not found 로그 표시
+					/////////////////////////////////
+					System.out.println("NOT FOUND : " + path);
+				} else {
+					responseCode = ResponseCode.OK;
+				}
+				
+				/////////////////////////////////
+				// for debug - 보내줄 파일 로그 표시 
+				/////////////////////////////////
+				System.out.println(requesstFile);
+				
+				//요청 받은 데이터를 보낼 스트림 생성  
+				DataOutputStream dos = new DataOutputStream(os);
+				
+				//요청 처리 메시지를 만든다
+				responseHTML(dos, requesstFile.length() );
+				
+				FileInputStream fis = new FileInputStream(requesstFile);
+		
+				//본격적으로 요청받은 데이터를 쓴다
+				int data = fis.read();
+
+				while(data != -1){
+					dos.write(data);
+					data = fis.read();
+				}
+				fis.close();
+				dos.close();
+				connection.close(); //keep-alive는 지원하지 않음
+				return;
+			} else if ( !"GET".equals(requestedMethod) ){
+				//POST도 GET도 아니면 지원하지 않습니다. 응답코드를 501로 설정
 				responseCode = ResponseCode.SERVER_ERROR;
 			}
-			
-			/////////////////////////////////
-			// for debug
-			/////////////////////////////////
-			System.out.println(header);
 			
 			//요청받은 파일 형식을 확인하고 나중에 응답할 때 쓰기 위해 기록해 둔다.
 			setRequestedDataType(header);
@@ -96,21 +178,21 @@ public class RequestThread extends Thread {
 			//요청받은 내용 처리할 객체 생성를 생성하고 요청받은 내용을 넘겨서 처리한다.
 			HttpRequest request = new HttpRequest();
 			//처리 결과는 요청받은 url을 반환하는데, 이는 결국 클라이언트에게 어떤 데이터를 보내주어야 하는지 확인하는 수단이 된다.
-			String requestUrl = request.parsingUrl(header);
+			String path = request.parsingUrl(header);
 			
 			//주소만 넣어도 기본 페이지가 보이도록 설정
-			if ( !requestUrl.contains(".") ){
-				requestUrl += "index.html";
+			if ( !path.contains(".") ){
+				path += "index.html";
 			}
 			
 			//요청 받은 데이터를 보낼 스트림 생성  
 			DataOutputStream dos = new DataOutputStream(os);
 			
 			//db조회가 필요한지 확인 
-			String tempString = requestUrl.substring(requestUrl.lastIndexOf("_") + 1, requestUrl.length() );
+			String tempString = path.substring(path.lastIndexOf("_") + 1, path.length() );
 			if ("newsTag.json".equals(tempString) ){
 				//newsTag 관련 요청이므로 db조회 필요
-				String newspaperName = requestUrl.substring(requestUrl.lastIndexOf("/") + 1, requestUrl.lastIndexOf("_") );
+				String newspaperName = path.substring(path.lastIndexOf("/") + 1, path.lastIndexOf("_") );
 				String result = dbManager.getTags(newspaperName);
 				
 				if (result != null){
@@ -127,8 +209,8 @@ public class RequestThread extends Thread {
 				//dos.writeBytes(""[[\"test\", 4], [\"테스트\", 2]]");
 			} else if("detail.json".equals(tempString)){
 				//newsTag 관련 요청이므로 db조회 필요
-				String newspaperName = requestUrl.substring(requestUrl.lastIndexOf("/") + 1, requestUrl.indexOf("_") );
-				String tagIdx = requestUrl.substring(requestUrl.indexOf("_") + 1, requestUrl.lastIndexOf("_") );
+				String newspaperName = path.substring(path.lastIndexOf("/") + 1, path.indexOf("_") );
+				String tagIdx = path.substring(path.indexOf("_") + 1, path.lastIndexOf("_") );
 				String result = dbManager.getDetail(newspaperName, tagIdx);
 				
 				if (result != null){
@@ -141,7 +223,7 @@ public class RequestThread extends Thread {
 				dos.write(result.getBytes("UTF-8"));
 			} else if("keyword.json".equals(tempString)){
 				//keyword 관련 요청이므로 db조회 필요
-				String newspaperName = requestUrl.substring(requestUrl.lastIndexOf("/") + 1, requestUrl.lastIndexOf("_") );
+				String newspaperName = path.substring(path.lastIndexOf("/") + 1, path.lastIndexOf("_") );
 				String result = dbManager.getKeywords(newspaperName);
 				
 				if (result != null){
@@ -154,8 +236,8 @@ public class RequestThread extends Thread {
 				dos.write(result.getBytes("UTF-8"));
 			} else if("keyDetail.json".equals(tempString)){
 				//keyword 관련 요청이므로 db조회 필요
-				String newspaperName = requestUrl.substring(requestUrl.lastIndexOf("/") + 1, requestUrl.indexOf("_") );
-				String tagIdx = requestUrl.substring(requestUrl.indexOf("_") + 1, requestUrl.lastIndexOf("_") );
+				String newspaperName = path.substring(path.lastIndexOf("/") + 1, path.indexOf("_") );
+				String tagIdx = path.substring(path.indexOf("_") + 1, path.lastIndexOf("_") );
 				String result = dbManager.getKeywordDetail(newspaperName, tagIdx);
 				
 				if (result != null){
@@ -169,7 +251,7 @@ public class RequestThread extends Thread {
 			} else {
 				//db조회가 필요하지 않음 - 폴더 안에서 요청 파일을 찾아보자 
 				//보내줄 파일들을 저장하는 폴더 아래에서 요청받은 파일을 찾아서 변수에 할당
-				File requesstFile = new File(DEFAULT_WEBAPPS_DIR + requestUrl);
+				File requesstFile = new File(DEFAULT_WEBAPPS_DIR + path);
 				
 				//찾은 파일이 존재하지 않으면 404 코드를 설정하고, 만약 요청받은 파일이 html형식이라면 에러 메시지를 표시할 수 있는 오류 페이지 전송
                 if ( !requesstFile.exists() ){
@@ -183,7 +265,7 @@ public class RequestThread extends Thread {
 					/////////////////////////////////
 					// for debug - not found 로그 표시
 					/////////////////////////////////
-					System.out.println("NOT FOUND : " + requestUrl);
+					System.out.println("NOT FOUND : " + path);
 				} else {
 					responseCode = ResponseCode.OK;
 				}
@@ -237,9 +319,9 @@ public class RequestThread extends Thread {
 		dos.writeBytes("Content-Length: " + length + NEWLINE);
 		dos.writeBytes(NEWLINE); //데이터가 들어가기 전에는 빈 줄 생성 
 		
-		System.out.println("    " + "HTTP/1.0 " + code + " Document Follows " + NEWLINE);
-		System.out.println("    " + "Content-Type: " + type + " ;charset=utf-8" + NEWLINE);
-		System.out.println("    " + "Content-Length: " + length + NEWLINE);
+		//System.out.println("    " + "HTTP/1.0 " + code + " Document Follows " + NEWLINE);
+		//System.out.println("    " + "Content-Type: " + type + " ;charset=utf-8" + NEWLINE);
+		//System.out.println("    " + "Content-Length: " + length + NEWLINE);
 	}
 
 	private void setRequestedDataType(String header){
