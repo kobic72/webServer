@@ -119,4 +119,100 @@ public class DBManager {
 			return result;
 		}
 	}
+	
+	@SuppressWarnings("finally")
+	public synchronized String getKeywords(String newspaper) {
+		
+		try {
+			conn = DriverManager.getConnection(jdbcUrl, userID, userPW);
+			
+			stmt = conn.createStatement();
+			sql = "select keyword.keyword_name, sum(selected_keyword.count), selected_keyword.keyword_id from keyword JOIN (select * from keyword_article JOIN (select article.id from article JOIN newspaper ON article.newspaper_id = newspaper.id where newspaper.name = '"
+					+ nameTable.getNewspaperName(newspaper) + "') AS temp ON keyword_article.article_id = temp.id ) AS selected_keyword ON selected_keyword.keyword_id = keyword.id GROUP BY selected_keyword.keyword_id ORDER BY sum(selected_keyword.count) desc limit 15";
+			
+			rs = stmt.executeQuery(sql);
+			
+			result = "[";
+			boolean previous = false;
+			while (rs.next()) {
+				if (previous){
+					result += ", ";
+				}
+				result += ("[\"" + rs.getString("keyword.keyword_name") + "\", " + rs.getString("sum(selected_keyword.count)") + ", " + rs.getString("selected_keyword.keyword_id") + "]");
+				
+				previous = true;
+			}
+			
+			result += "]";
+			
+		} catch (SQLException e) {
+			System.out.printf("FAIL");
+			conn.rollback();
+		} finally {
+			if (pstmt != null) {
+				try { pstmt.close(); } 
+				catch (final SQLException e) {}
+			}
+
+			if (rs != null) {
+				try { rs.close(); } 
+				catch (final SQLException e) {}
+			}
+
+			if (conn != null) {
+				try { conn.setAutoCommit(true); }
+				catch (final SQLException e) {}
+			}
+
+			return result;
+		}
+	}
+	
+	@SuppressWarnings("finally")
+	public synchronized String getKeywordDetail(String newspaper, String tagIdx) {
+		
+		try {
+			conn = DriverManager.getConnection(jdbcUrl, userID, userPW);
+			stmt = conn.createStatement();
+			sql = "select article.title, article.summary, article.link_uri, selected_keyword.count from article JOIN (select article_id, count from keyword_article where keyword_article.keyword_id = "
+					+ tagIdx + ") AS selected_keyword ON article.id = selected_keyword.article_id where article.newspaper_id = (select id from newspaper where name = '"
+					+ nameTable.getNewspaperName(newspaper) + "') group by selected_keyword.article_id ORDER BY sum(selected_keyword.count) desc limit 3";
+					
+			rs = stmt.executeQuery(sql);
+			
+			result = "[";
+			boolean previous = false;
+			while (rs.next()) {
+				if (previous){
+					result += ", ";
+				}
+				result += ("{\"title\" : \"" + rs.getString("article.title") + "\", \"summary\" : \"" + rs.getString("article.summary") + "\", \"link\" : \"" + rs.getString("article.link_uri") + "\"}");
+				
+				previous = true;
+			}
+			
+			result += "]";
+			
+		} catch (SQLException e) {
+			System.out.printf("FAIL");
+			conn.rollback();
+		} finally {
+			if (pstmt != null) {
+				try { pstmt.close(); } 
+				catch (final SQLException e) {}
+			}
+
+			if (rs != null) {
+				try { rs.close(); } 
+				catch (final SQLException e) {}
+			}
+
+			if (conn != null) {
+				try { conn.setAutoCommit(true); }
+				catch (final SQLException e) {}
+			}
+
+			return result;
+		}
+	}
 }
